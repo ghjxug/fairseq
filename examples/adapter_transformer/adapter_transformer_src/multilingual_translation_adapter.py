@@ -24,6 +24,7 @@ class MultilingualTranslationTaskAdapter(TranslationMultiSimpleEpochTask):
         super().__init__(args, langs, dicts, training)
 
         self.encoder_adapter = args.encoder_adapter
+        self.decoder_adapter = args.decoder_adapter
 
 #        if args.drop_adapters_for_inference is None:
 
