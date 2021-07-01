@@ -87,7 +87,8 @@ class EncoderSimilarityLabelSmoothedCrossEntropyCriterion(
                 model, net_output_reverse, sample, reduce=reduce,
                 reverse=True
                 )
-
+#        print("ORIG:", loss, nll_loss)
+#        print("REVERSE:", loss_reverse, nll_loss_reverse)
         loss += loss_reverse
         
         ntokens_src = sample["net_input"]["src_lengths"].sum().item()
@@ -97,7 +98,9 @@ class EncoderSimilarityLabelSmoothedCrossEntropyCriterion(
         sample_size += sample_size_reverse
 
         # 3) loss by comparing encoder similarity
+#        if self.similarity_regularization_weight:
         sim_loss = self.compute_similarity_loss(net_output, net_output_reverse)
+#        print("SIM", sim_loss)
         loss += sim_loss * self.similarity_regularization_weight
 
         logging_output = {
@@ -106,13 +109,15 @@ class EncoderSimilarityLabelSmoothedCrossEntropyCriterion(
             "ntokens": sample["ntokens"] + ntokens_src,
             "nsentences": sample["target"].size(0) * 2,
             "sample_size": sample_size,
-            "similarity_loss": sim_loss,
+            "similarity_loss": sim_loss.data,
         }
 
         if self.report_accuracy:    # TODO: make this for both directions too
             n_correct, total = self.compute_accuracy(model, net_output, sample)
             logging_output["n_correct"] = utils.item(n_correct.data)
             logging_output["total"] = utils.item(total.data)
+
+#        print(logging_output)
         return loss, sample_size, logging_output
 
 
@@ -151,6 +156,7 @@ class EncoderSimilarityLabelSmoothedCrossEntropyCriterion(
         # use [1] to access extra properties; 
         # look up key "encoder_out"; 
         # take first element of list
+        
         enc_out = net_output[1]["encoder_out"][0]   # T x B x C
         enc_out_rev = net_output_reverse[1]["encoder_out"][0]
         enc_mask = net_output[1]["encoder_padding_mask"][0]    # B x T
@@ -161,10 +167,11 @@ class EncoderSimilarityLabelSmoothedCrossEntropyCriterion(
         enc_out_rev[enc_mask_rev.transpose(0,1)] = 0
 
         # B x C / B x 1 --> B x C
-        meanpool_enc_out = enc_out.sum(axis=0) / (1.0 - enc_mask.sum(axis=1)).unsqueeze(-1)
-        meanpool_enc_out_rev = enc_out_rev.sum(axis=0) / (1.0 - enc_mask_rev.sum(axis=1)).unsqueeze(-1)
-
-        diff = ((meanpool_enc_out - meanpool_enc_out_rev) ** 2).sum()
+        meanpool_enc_out = enc_out.sum(axis=0) / (~enc_mask).sum(axis=1).unsqueeze(-1)
+        meanpool_enc_out_rev = enc_out_rev.sum(axis=0) / (~enc_mask_rev).sum(axis=1).unsqueeze(-1)
+    
+#        B, C = enc_out.shape[1], enc_out.shape[2]
+        diff = (((meanpool_enc_out - meanpool_enc_out_rev)) ** 2).sum()
 
         return diff
 
