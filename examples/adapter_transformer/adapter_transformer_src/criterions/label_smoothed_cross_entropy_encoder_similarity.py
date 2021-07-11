@@ -9,7 +9,7 @@ from fairseq.criterions.label_smoothed_cross_entropy import (
     label_smoothed_nll_loss
 )
 import torch
-
+import math
 from fairseq import utils
 
 
@@ -152,26 +152,27 @@ class EncoderSimilarityLabelSmoothedCrossEntropyCriterion(
         return lprobs.view(-1, lprobs.size(-1)), target.view(-1)
 
 
-    def compute_similarity_loss(self, net_output, net_output_reverse, ):
+    def compute_similarity_loss(self, net_output, net_output_reverse):
         # use [1] to access extra properties; 
         # look up key "encoder_out"; 
         # take first element of list
-        
         enc_out = net_output[1]["encoder_out"][0]   # T x B x C
         enc_out_rev = net_output_reverse[1]["encoder_out"][0]
         enc_mask = net_output[1]["encoder_padding_mask"][0]    # B x T
         enc_mask_rev = net_output_reverse[1]["encoder_padding_mask"][0]
         
         # zero out padded positions
-        enc_out[enc_mask.transpose(0,1)] = 0
-        enc_out_rev[enc_mask_rev.transpose(0,1)] = 0
-
+#        _enc_out = enc_out.masked_fill(enc_mask.transpose(0,1).unsqueeze(-1), 0.0).type_as(enc_out)
+#        _enc_out_rev = enc_out_rev.masked_fill(enc_mask_rev.transpose(0,1).unsqueeze(-1), 0.0).type_as(enc_out_rev)
+#        _enc_out[enc_mask.transpose(0,1)] = 0.0
+#        _enc_out_rev[enc_mask_rev.transpose(0,1)] = 0.0
+        
         # B x C / B x 1 --> B x C
-        meanpool_enc_out = enc_out.sum(axis=0) / (~enc_mask).sum(axis=1).unsqueeze(-1)
-        meanpool_enc_out_rev = enc_out_rev.sum(axis=0) / (~enc_mask_rev).sum(axis=1).unsqueeze(-1)
+        meanpool_enc_out = enc_out[~enc_mask.transpose(0,1)].sum(axis=0) / (~enc_mask).sum(axis=1).unsqueeze(-1)
+        meanpool_enc_out_rev = enc_out_rev[~enc_mask_rev.transpose(0,1)].sum(axis=0) / (~enc_mask_rev).sum(axis=1).unsqueeze(-1)
     
-#        B, C = enc_out.shape[1], enc_out.shape[2]
-        diff = (((meanpool_enc_out - meanpool_enc_out_rev)) ** 2).sum()
+        B, C = enc_out.shape[1], enc_out.shape[2]
+        diff = ((((meanpool_enc_out - meanpool_enc_out_rev) / math.sqrt(C))) ** 2).sum()
 
         return diff
 
