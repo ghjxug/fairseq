@@ -51,9 +51,16 @@ class MultilingualTranslationTaskAdapter(TranslationMultiSimpleEpochTask):
     def reduce_metrics(self, logging_outputs, criterion):
         super().reduce_metrics(logging_outputs, criterion)
 
-        if any("similarity_loss" in log for log in logging_outputs):
-            similarity_loss = sum(log.get("similarity_loss", 0) for log in logging_outputs)
-            metrics.log_scalar("similarity_loss", similarity_loss, priority=200, round=1)
+        if not any("nsentences" in log for log in logging_outputs):
+            warnings.warn(
+                "nsentences not found in Criterion logging outputs, cannot log bsz and similarity loss"
+            )
+        else:
+            nsentences = sum(log.get("nsentences", 0) for log in logging_outputs)
+
+            if any("similarity_loss" in log for log in logging_outputs):
+                similarity_loss = sum(log.get("similarity_loss", 0) for log in logging_outputs) / nsentences
+                metrics.log_scalar("similarity_loss", similarity_loss, priority=200, round=1)
 
         criterion.__class__.reduce_metrics(logging_outputs)
 
