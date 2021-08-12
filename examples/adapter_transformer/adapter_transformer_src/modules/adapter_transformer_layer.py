@@ -12,8 +12,6 @@ from fairseq import utils
 from fairseq.modules import TransformerEncoderLayer, TransformerDecoderLayer
 from fairseq.modules import LayerNorm
 
-from fairseq.modules.layer_norm import FusedLayerNorm
-
 from fairseq.modules.fairseq_dropout import FairseqDropout
 from torch import Tensor
 
@@ -52,7 +50,7 @@ class AdapterTransformerEncoderLayer(TransformerEncoderLayer):
                 for p_name, param in child.named_parameters():
                     param.requires_grad = True
             else:
-                if isinstance(child, FusedLayerNorm):
+                if "layer_norm" in name: #isinstance(child, FusedLayerNorm):
                     child.eval()
 
 
@@ -98,12 +96,11 @@ class AdapterTransformerDecoderLayer(TransformerDecoderLayer):
     def activate_adapters(self):
         # Freeze all original parameters
         for name, child in (self.named_children()):
-
             if isinstance(child, MultilingualAdapter):
                 for p_name, param in child.named_parameters():
                     param.requires_grad = True
             else:
-                if isinstance(child, FusedLayerNorm):
+                if "layer_norm" in name: ##isinstance(child, FusedLayerNorm):
                     child.eval()
 
 
