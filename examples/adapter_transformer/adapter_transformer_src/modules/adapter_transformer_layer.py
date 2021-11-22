@@ -35,8 +35,11 @@ class AdapterTransformerEncoderLayer(TransformerEncoderLayer):
         super().__init__(args)
         self.lang_idx = None
 
-        self.adapters = MultilingualAdapter(args, args.encoder_embed_dim)
-        self.drop_adapters_for_inference = args.drop_adapters_for_inference
+        if args.encoder_adapter:
+            self.adapters = MultilingualAdapter(args, args.encoder_embed_dim)
+            self.drop_adapters_for_inference = args.drop_adapters_for_inference
+        else:
+            self.adapters = None
 
     def set_lang_idx(self, lang_idx):
         self.lang_idx = lang_idx
@@ -44,14 +47,15 @@ class AdapterTransformerEncoderLayer(TransformerEncoderLayer):
 
     def activate_adapters(self):
         # Freeze all original parameters
-        for name, child in (self.named_children()):
-
-            if isinstance(child, MultilingualAdapter):
-                for p_name, param in child.named_parameters():
-                    param.requires_grad = True
-            else:
-                if "layer_norm" in name: #isinstance(child, FusedLayerNorm):
-                    child.eval()
+        if self.adapters is not None:
+            for name, child in (self.named_children()):
+    
+                if isinstance(child, MultilingualAdapter):
+                    for p_name, param in child.named_parameters():
+                        param.requires_grad = True
+                else:
+                    if "layer_norm" in name: #isinstance(child, FusedLayerNorm):
+                        child.eval()
 
 
 
@@ -79,6 +83,9 @@ class AdapterTransformerEncoderLayer(TransformerEncoderLayer):
 
         x = super().forward(x, encoder_padding_mask, attn_mask)
 
+        if self.adapters is None:
+            return x
+
         if not self.training and self.drop_adapters_for_inference:
             return x
 
@@ -90,18 +97,23 @@ class AdapterTransformerEncoderLayer(TransformerEncoderLayer):
 class AdapterTransformerDecoderLayer(TransformerDecoderLayer):
     def __init__(self, args):
         super().__init__(args)
-        self.adapters = MultilingualAdapter(args, args.decoder_embed_dim)
-        self.drop_adapters_for_inference = args.drop_adapters_for_inference
+        
+        if args.decoder_adapter:
+            self.adapters = MultilingualAdapter(args, args.decoder_embed_dim)
+            self.drop_adapters_for_inference = args.drop_adapters_for_inference
+        else:
+            self.adapters = None
 
     def activate_adapters(self):
         # Freeze all original parameters
-        for name, child in (self.named_children()):
-            if isinstance(child, MultilingualAdapter):
-                for p_name, param in child.named_parameters():
-                    param.requires_grad = True
-            else:
-                if "layer_norm" in name: ##isinstance(child, FusedLayerNorm):
-                    child.eval()
+        if self.adapters is not None:
+            for name, child in (self.named_children()):
+                if isinstance(child, MultilingualAdapter):
+                    for p_name, param in child.named_parameters():
+                        param.requires_grad = True
+                else:
+                    if "layer_norm" in name: ##isinstance(child, FusedLayerNorm):
+                        child.eval()
 
 
     def forward(
@@ -120,6 +132,9 @@ class AdapterTransformerDecoderLayer(TransformerDecoderLayer):
         x, attn, self_attn_state = super().forward(x, encoder_out, encoder_padding_mask, 
                 incremental_state, prev_self_attn_state, prev_attn_state, 
                 self_attn_mask, self_attn_padding_mask, need_attn, need_head_weights)
+
+        if self.adapters is None:
+            return x, attn, self_attn_state
 
         if not self.training and self.drop_adapters_for_inference:
             return x, attn, self_attn_state

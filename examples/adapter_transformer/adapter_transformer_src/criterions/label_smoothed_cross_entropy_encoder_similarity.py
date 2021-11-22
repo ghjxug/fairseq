@@ -102,7 +102,7 @@ class EncoderSimilarityLabelSmoothedCrossEntropyCriterion(
         sim_loss = self.compute_similarity_loss(net_output, net_output_reverse)
 #        print("SIM", sim_loss)
         loss += sim_loss * self.similarity_regularization_weight
-
+        
         logging_output = {
             "loss": loss.data + loss_reverse.data,
             "nll_loss": nll_loss.data + nll_loss_reverse.data,
