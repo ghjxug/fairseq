@@ -31,7 +31,7 @@ class AdapterTransformerEncoderLayer(TransformerEncoderLayer):
         args (argparse.Namespace): parsed command-line arguments
     """
 
-    def __init__(self, args):
+    def __init__(self, args, drop_residual_after_att=False):
         super().__init__(args)
         self.lang_idx = None
 
@@ -40,6 +40,10 @@ class AdapterTransformerEncoderLayer(TransformerEncoderLayer):
             self.drop_adapters_for_inference = args.drop_adapters_for_inference
         else:
             self.adapters = None
+
+        print('****************************', drop_residual_after_att)
+        self.drop_residual_after_att = drop_residual_after_att
+
 
     def set_lang_idx(self, lang_idx):
         self.lang_idx = lang_idx
@@ -81,7 +85,39 @@ class AdapterTransformerEncoderLayer(TransformerEncoderLayer):
         # the attention weight (before softmax) for some padded element in query
         # will become -inf, which results in NaN in model parameters
 
-        x = super().forward(x, encoder_padding_mask, attn_mask)
+        if attn_mask is not None:
+            attn_mask = attn_mask.masked_fill(attn_mask.to(torch.bool), -1e8)
+
+        residual = x
+        if self.normalize_before:
+            x = self.self_attn_layer_norm(x)
+        x, _ = self.self_attn(
+            query=x,
+            key=x,
+            value=x,
+            key_padding_mask=encoder_padding_mask,
+            need_weights=False,
+            attn_mask=attn_mask,
+        )
+        x = self.dropout_module(x)
+        
+        if not self.drop_residual_after_att:
+            x = self.residual_connection(x, residual)
+        if not self.normalize_before:
+            x = self.self_attn_layer_norm(x)
+
+        residual = x
+        if self.normalize_before:
+            x = self.final_layer_norm(x)
+        x = self.activation_fn(self.fc1(x))
+        x = self.activation_dropout_module(x)
+        x = self.fc2(x)
+        x = self.dropout_module(x)
+        x = self.residual_connection(x, residual)
+        if not self.normalize_before:
+            x = self.final_layer_norm(x)
+
+#	x = super().forward(x, encoder_padding_mask, attn_mask)
 
         if self.adapters is None:
             return x

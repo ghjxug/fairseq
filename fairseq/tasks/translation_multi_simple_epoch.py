@@ -70,6 +70,9 @@ class TranslationMultiSimpleEpochTask(LegacyFairseqTask):
         parser.add_argument('--lang-pairs', default=None, metavar='PAIRS',
                             help='comma-separated list of language pairs (in training order): en-de,en-fr,de-fr',
                             action=FileContentsAction)
+        parser.add_argument('--valid-lang-pairs', default=None, metavar='VALID_PAIRS',
+                            help='comma-separated list of language pairs (in training order): en-de,en-fr,de-fr',
+                            action=FileContentsAction)
         parser.add_argument('--keep-inference-langtok', action='store_true',
                             help='keep language tokens in inference output (e.g. for analysis or debugging)')
 

@@ -852,6 +852,14 @@ class MultilingualDatasetManager(object):
                     k: v.split(",") for k, v in self.args.extra_lang_pairs.items()
                 }
                 lang_pairs.update(extra_lang_pairs)
+
+        if split == getattr(self.args, "valid_subset", None):
+            if self.args.valid_lang_pairs:
+                valid_lang_pairs = {
+                    "main": self.args.valid_lang_pairs.split(",")
+                }
+                lang_pairs.update(valid_lang_pairs)
+
         return datapaths, lang_pairs
 
     @classmethod

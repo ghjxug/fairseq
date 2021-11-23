@@ -71,7 +71,7 @@ class AdapterTransformerEncoder(TransformerEncoder):
     def __init__(self, args, dictionary, embed_tokens):
         super().__init__(args, dictionary, embed_tokens)
         self.layers = nn.ModuleList(
-            [AdapterTransformerEncoderLayer(args) for idx in range(args.encoder_layers)]
+            [self._build_encoder_layer(args, idx, args.encoder_drop_residual) for idx in range(args.encoder_layers)]
         )
 
         if args.encoder_adapter:
@@ -82,6 +82,10 @@ class AdapterTransformerEncoder(TransformerEncoder):
 
             for l in self.layers:
                 l.activate_adapters()
+
+    def _build_encoder_layer(self, args, layer_idx, encoder_drop_residual_at_layer=None):
+        drop_residual_after_att = (layer_idx == encoder_drop_residual_at_layer)
+        return AdapterTransformerEncoderLayer(args, drop_residual_after_att)
 
 
 class AdapterTransformerDecoder(TransformerDecoder):

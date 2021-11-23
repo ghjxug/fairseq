@@ -22,6 +22,8 @@ class MultilingualTranslationTaskAdapter(TranslationMultiSimpleEpochTask):
                 help='Use adapters in decoder, freeze all other parameters.')
         parser.add_argument('--drop-adapters-for-inference', action='store_true',
                 help='Drop adapter modules at inference time.')
+        parser.add_argument('--encoder-drop-residual', type=int,
+                help='drop residual after self-attention in this encoder layer',)
 
 
     def __init__(self, args, langs, dicts, training):
