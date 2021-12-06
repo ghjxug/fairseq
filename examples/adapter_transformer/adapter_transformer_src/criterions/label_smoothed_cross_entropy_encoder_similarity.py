@@ -78,9 +78,9 @@ class EncoderSimilarityLabelSmoothedCrossEntropyCriterion(
 
         # 2) forward pass for reverse direction (tgt -> src)
         net_output_reverse = model(
-                src_tokens = sample["target"],
-                src_lengths = None,
-                prev_output_tokens = prev_input_tokens
+                src_tokens=sample["target"],
+                src_lengths=None,
+                prev_output_tokens=prev_input_tokens
                 )
 
         loss_reverse, nll_loss_reverse = self.compute_loss(
@@ -204,4 +204,5 @@ class EncoderSimilarityLabelSmoothedCrossEntropyCriterion(
 
         # TODO: 
         # assert padding for source and target have to be on the same side
+        # assert language token setup: src on src; tgt on tgt
 

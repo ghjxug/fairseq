@@ -132,6 +132,8 @@ class AdapterTransformerDecoder(TransformerDecoder):
         # Additionally return encoder output
         extra["encoder_out"] = encoder_out["encoder_out"]
         extra["encoder_padding_mask"] = encoder_out["encoder_padding_mask"]
+        if "classification_out" in encoder_out:
+            extra["classification_out"] = encoder_out["classification_out"]
 
         return x, extra
 
