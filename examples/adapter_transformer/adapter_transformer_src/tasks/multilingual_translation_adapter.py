@@ -7,6 +7,7 @@ from fairseq.tasks import register_task
 from fairseq.tasks.translation_multi_simple_epoch import TranslationMultiSimpleEpochTask
 import torch
 from fairseq import metrics
+import warnings
 
 
 @register_task("multilingual_translation_adapter")
@@ -16,15 +17,14 @@ class MultilingualTranslationTaskAdapter(TranslationMultiSimpleEpochTask):
     def add_args(parser):
         """Add task-specific arguments to the parser."""
         TranslationMultiSimpleEpochTask.add_args(parser)
-        parser.add_argument('--encoder-adapter', action='store_true', 
-                help='Use adapters in encoder, freeze all other parameters.')
+        parser.add_argument('--encoder-adapter', action='store_true',
+                            help='Use adapters in encoder, freeze all other parameters.')
         parser.add_argument('--decoder-adapter', action='store_true',
-                help='Use adapters in decoder, freeze all other parameters.')
+                            help='Use adapters in decoder, freeze all other parameters.')
         parser.add_argument('--drop-adapters-for-inference', action='store_true',
-                help='Drop adapter modules at inference time.')
+                            help='Drop adapter modules at inference time.')
         parser.add_argument('--encoder-drop-residual', type=int,
-                help='drop residual after self-attention in this encoder layer',)
-
+                            help='drop residual after self-attention in this encoder layer',)
 
     def __init__(self, args, langs, dicts, training):
         super().__init__(args, langs, dicts, training)
@@ -67,18 +67,18 @@ class MultilingualTranslationTaskAdapter(TranslationMultiSimpleEpochTask):
         criterion.__class__.reduce_metrics(logging_outputs)
 
 
-    def _get_src_tgt_lang_idx(self, lang_pair):
-        # add index
-        src, tgt = lang_pair.split("-")
-
-        src_lang_idx, tgt_lang_idx = None, None
-
-        if self.encoder_adapter:
-            src_lang_idx = self.src_lang_idx_dict[src]
-        if self.decoder_adapter:
-            tgt_lang_idx = self.tgt_lang_idx_dict[tgt]
-
-        return src_lang_idx, tgt_lang_idx
+    # def _get_src_tgt_lang_idx(self, lang_pair):
+    #     # add index
+    #     src, tgt = lang_pair.split("-")
+    #
+    #     src_lang_idx, tgt_lang_idx = None, None
+    #
+    #     if self.encoder_adapter:
+    #         src_lang_idx = self.src_lang_idx_dict[src]
+    #     if self.decoder_adapter:
+    #         tgt_lang_idx = self.tgt_lang_idx_dict[tgt]
+    #
+    #     return src_lang_idx, tgt_lang_idx
 
 
 #    @property

@@ -29,7 +29,6 @@ class ResidualDropTransformerEncoderLayer(TransformerEncoderLayer):
 
     def __init__(self, args, drop_residual_after_att=False):
         super().__init__(args)
-        print('****************************', drop_residual_after_att)
         self.drop_residual_after_att = drop_residual_after_att
 
     def forward(self, x, encoder_padding_mask: Optional[Tensor], attn_mask: Optional[Tensor] = None):

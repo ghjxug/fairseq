@@ -3,17 +3,11 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Dict, List, Optional
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from fairseq import utils
-from fairseq.modules import TransformerEncoderLayer, TransformerDecoderLayer
-from fairseq.modules import LayerNorm
 
 from fairseq.modules.fairseq_dropout import FairseqDropout
-from torch import Tensor
 
 
 class ClassificationLayer(nn.Module):
@@ -24,9 +18,30 @@ class ClassificationLayer(nn.Module):
         self.dropout = FairseqDropout(
             args.dropout, module_name=self.__class__.__name__
         )
+        self.grad_reversal_scaling_factor = args.grad_reversal_scaling_factor
 
     def forward(self, x):
+        if self.training:   # Gradient reversal on input to classifier
+            x = grad_reverse(x, self.grad_reversal_scaling_factor)
+
         x = F.relu(self.fc_1(x), inplace=True)
         x = self.dropout(x)
         x = self.fc_2(x)
         return x
+
+
+class GradReverse(torch.autograd.Function):
+    scale = 1.0
+
+    @staticmethod
+    def forward(self, x):
+        return x.view_as(x)
+
+    @staticmethod
+    def backward(self, grad_output):
+        return GradReverse.scale * grad_output.neg()
+
+
+def grad_reverse(x, scale=1.0):
+    GradReverse.scale = scale
+    return GradReverse.apply(x)

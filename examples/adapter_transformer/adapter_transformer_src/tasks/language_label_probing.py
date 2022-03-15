@@ -26,7 +26,9 @@ class LanguageProbing(MultilingualTranslationTaskAdapter):
         print(type(model.encoder))
         print(type(model.decoder))
         for name, param in model.named_parameters():
+            # Freeze everything apart from encoder language classifier
             if "encoder.language_classifier" not in name:
+                print("*** Freezing", name)
                 param.requires_grad = False
         # for name, param in model.decoder.named_parameters():
         #     if param.requires_grad:
