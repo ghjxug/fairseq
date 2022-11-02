@@ -7,13 +7,12 @@ from .criterions import (label_smoothed_cross_entropy_encoder_similarity,
                          language_classification_cross_entropy,
                          label_smoothed_cross_entropy_codebook,
                          )
-from .models import (adapter_transformer,
+from .models import (lang_independent_transformer,
                      language_classification_transformer,
                      codebook_transformer,
                      )
-from .modules import adapter_transformer_layer, classifier
-from .tasks import (
-    language_label_probing,
-    multilingual_translation_adapter,
-    multilingual_translation_with_adversarial_language_classifier
-    )
+from .modules import classifier
+from .tasks import (language_label_probing,
+                    multilingual_translation_similarity,
+                    multilingual_translation_with_adversarial_language_classifier,
+                    )
