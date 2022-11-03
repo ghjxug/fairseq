@@ -2,6 +2,7 @@
 
 BASEDIR=/path/to/working/dir
 path_2_data=/path/to/binarized/data
+lang_list=/path/to/langlist
 
 name=$1 # model name
 ckpt=$2 # checkpoint name
@@ -34,7 +35,7 @@ for tl in $LANS; do
             --fixed-dictionary $FAIRSEQ_MODEL/dict.txt \
             -s $sl -t $tl \
             --beam 5 \
-            --lang-dict $BASEDIR/data/prepro_fairseq/lang_list.txt \
+            --lang-dict $lang_list \
             --lang-pairs $FAIRSEQ_MODEL/language_pairs.txt \
             --decoder-langtok --encoder-langtok src \
             --gen-subset test \
