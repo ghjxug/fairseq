@@ -194,7 +194,7 @@ class LanguageClassificationCrossEntropyCriterion(
             stats_per_lang[utils.item(id.data)] = [utils.item(n_correct.data), utils.item(n_total.data)]
 
         # Calc overall accuracy
-        mask = target.ne(self.padding_idx)
+        mask = target.ne(lang_target_padding)
         n_correct = torch.sum(
             lprobs.argmax(1).masked_select(mask).eq(target.masked_select(mask))
         )
