@@ -127,7 +127,7 @@ class LanguageClassificationCrossEntropyCriterion(
         # net_input["src_tokens"] is B x T
         # Take first src token (src lang ID). B
         src_lang_target = net_input["src_tokens"][:, 0] - vocab_size + 1  # label 0 is reserved for padding
-
+        src_lang_target = src_lang_target.contiguous()
         encoder_classification_out = net_output[1]["classification_out"]
         max_len, bsz, num_total_labels = encoder_classification_out.shape
         lang_target_padding = 0
@@ -135,6 +135,8 @@ class LanguageClassificationCrossEntropyCriterion(
         if not torch.all(src_lang_target > 0):
             print("Violating condition 1")
             print(net_input["src_tokens"])
+            print(net_input["src_tokens"][0, 0])
+            print(net_input["src_tokens"][:, 0])
             print(src_lang_target)
             exit()
 
@@ -194,7 +196,7 @@ class LanguageClassificationCrossEntropyCriterion(
             stats_per_lang[utils.item(id.data)] = [utils.item(n_correct.data), utils.item(n_total.data)]
 
         # Calc overall accuracy
-        mask = target.ne(self.padding_idx)
+        mask = target.ne(lang_target_padding)
         n_correct = torch.sum(
             lprobs.argmax(1).masked_select(mask).eq(target.masked_select(mask))
         )

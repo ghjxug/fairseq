@@ -4,11 +4,13 @@
 # LICENSE file in the root directory of this source tree.
 
 import torch
-from typing import Optional
+from typing import Dict, List, Optional
+from torch import Tensor
 
 from fairseq.models import register_model, register_model_architecture
 from fairseq.models.transformer import (
     TransformerEncoder,
+    TransformerDecoder,
     base_architecture,
 )
 
@@ -21,7 +23,7 @@ class LanguageProbingTransformerModel(TransformerModel):
     @staticmethod
     def add_args(parser):
         """Add model-specific arguments to the parser."""
-        parser = TransformerModel.add_args(parser)
+        TransformerModel.add_args(parser)
         parser.add_argument(
             "--classifier-middle-layer-size",
             default=256,
@@ -55,6 +57,15 @@ class LanguageProbingTransformerModel(TransformerModel):
     @classmethod
     def build_encoder(cls, args, src_dict, embed_tokens):
         return LanguageProbingTransformerEncoder(args, src_dict, embed_tokens)
+
+    @classmethod
+    def build_decoder(cls, args, tgt_dict, embed_tokens):
+        return LanguageProbingTransformerDecoder(
+            args,
+            tgt_dict,
+            embed_tokens,
+            no_encoder_attn=getattr(args, "no_cross_attention", False),
+            )
 
     def load_state_dict(
             self,
@@ -97,6 +108,31 @@ class LanguageProbingTransformerEncoder(TransformerEncoder):
 
         return enc_out_dict
 
+class LanguageProbingTransformerDecoder(TransformerDecoder):
+    def extract_features_scriptable(
+        self,
+        prev_output_tokens,
+        encoder_out: Optional[Dict[str, List[Tensor]]],
+        incremental_state: Optional[Dict[str, Dict[str, Optional[Tensor]]]] = None,
+        full_context_alignment: bool = False,
+        alignment_layer: Optional[int] = None,
+        alignment_heads: Optional[int] = None,
+    ):
+        x, extra = super().extract_features_scriptable(
+            prev_output_tokens,
+            encoder_out,
+            incremental_state,
+            full_context_alignment,
+            alignment_layer,
+            alignment_heads,
+        )
+        # Additionally return encoder output
+        extra["encoder_out"] = encoder_out["encoder_out"]
+        extra["encoder_padding_mask"] = encoder_out["encoder_padding_mask"]
+        if "classification_out" in encoder_out:
+            extra["classification_out"] = encoder_out["classification_out"]
+
+        return x, extra
 
 @register_model_architecture(
     "language_classification_transformer", "language_classification_transformer"
