@@ -25,13 +25,11 @@ class EncoderSimilarityLabelSmoothedCrossEntropyCriterion(
             ignore_prefix_size=0,
             report_accuracy=False,
             similarity_regularization_weight=0,
-            unidirectional_translation=False,
     ):
         super().__init__(
             task, sentence_avg, label_smoothing, ignore_prefix_size, report_accuracy
         )
         self.similarity_regularization_weight = similarity_regularization_weight
-        self.unidirectional_translation = unidirectional_translation
 
     def forward(self, model, sample, reduce=True):
         """Compute the loss for the given sample.
@@ -79,32 +77,31 @@ class EncoderSimilarityLabelSmoothedCrossEntropyCriterion(
             prev_output_tokens=prev_input_tokens
         )
 
+        loss_reverse, nll_loss_reverse = self.compute_loss(
+            model, net_output_reverse, sample, reduce=reduce,
+            reverse=True
+        )
+
+        loss += loss_reverse
+
         ntokens_src = sample["net_input"]["src_lengths"].sum().item()
-        if not self.unidirectional_translation:
-            loss_reverse, nll_loss_reverse = self.compute_loss(
-                model, net_output_reverse, sample, reduce=reduce,
-                reverse=True
-            )
-
-            loss += loss_reverse
-
-            sample_size_reverse = (
-                sample["src_tokens"].size(0) if self.sentence_avg else ntokens_src
-            )
-            sample_size += sample_size_reverse
+        sample_size_reverse = (
+            sample["src_tokens"].size(0) if self.sentence_avg else ntokens_src
+        )
+        sample_size += sample_size_reverse
 
         # 3) loss by comparing encoder similarity
         #        if self.similarity_regularization_weight:
         sim_loss = self.compute_similarity_loss(net_output, net_output_reverse)
-        loss += sim_loss * self.similarity_regularization_weight * (sample["ntokens"] + ntokens_src)
+        loss += sim_loss * self.similarity_regularization_weight
 
         logging_output = {
-            "loss": loss.data + loss_reverse.data if not self.unidirectional_translation else loss.data,
-            "nll_loss": nll_loss.data + nll_loss_reverse.data if not self.unidirectional_translation else nll_loss.data,
-            "ntokens": sample["ntokens"] + ntokens_src if not self.unidirectional_translation else sample["ntokens"],
-            "nsentences": sample["target"].size(0) * 2 if not self.unidirectional_translation else sample["target"].size(0),
+            "loss": loss.data + loss_reverse.data,
+            "nll_loss": nll_loss.data + nll_loss_reverse.data,
+            "ntokens": sample["ntokens"] + ntokens_src,
+            "nsentences": sample["target"].size(0) * 2,
             "sample_size": sample_size,
-            "similarity_loss": sim_loss.item() * (sample["ntokens"] + ntokens_src) if not self.unidirectional_translation else sim_loss.item() * sample["ntokens"],
+            "similarity_loss": sim_loss.item(),
         }
 
         if self.report_accuracy:  # TODO: make this for both directions too
@@ -153,21 +150,18 @@ class EncoderSimilarityLabelSmoothedCrossEntropyCriterion(
         enc_mask_rev = net_output_reverse[1]["encoder_padding_mask"][0]
 
         # B x C / B x 1 --> B x C
-        # meanpool_enc_out = enc_out[~enc_mask.transpose(0, 1)].sum(axis=0) / (~enc_mask).sum(axis=1).unsqueeze(-1)
-        # meanpool_enc_out_rev = enc_out_rev[~enc_mask_rev.transpose(0, 1)].sum(axis=0) / (~enc_mask_rev).sum(
-        #     axis=1).unsqueeze(-1)
-        meanpool_enc_out = (enc_out * ~enc_mask.transpose(0, 1).unsqueeze(-1)).sum(axis=0) / (~enc_mask).sum(
+        meanpool_enc_out = enc_out[~enc_mask.transpose(0, 1)].sum(axis=0) / (~enc_mask).sum(axis=1).unsqueeze(-1)
+        meanpool_enc_out_rev = enc_out_rev[~enc_mask_rev.transpose(0, 1)].sum(axis=0) / (~enc_mask_rev).sum(
             axis=1).unsqueeze(-1)
-        meanpool_enc_out_rev = (enc_out_rev * ~enc_mask_rev.transpose(0, 1).unsqueeze(-1)).sum(axis=0) / (
-            ~enc_mask_rev).sum(axis=1).unsqueeze(-1)
 
         B, C = enc_out.shape[1], enc_out.shape[2]
         # cast to fp32
         meanpool_enc_out = meanpool_enc_out.float()
         meanpool_enc_out_rev = meanpool_enc_out_rev.float()
 
-        # remove division by math.sqrt(C)
-        diff = ((meanpool_enc_out - meanpool_enc_out_rev) ** 2).mean()
+        diff = (
+                ((meanpool_enc_out - meanpool_enc_out_rev) / math.sqrt(C))
+                ** 2).sum()
 
         return diff
 
@@ -194,12 +188,6 @@ class EncoderSimilarityLabelSmoothedCrossEntropyCriterion(
             type=float,
             metavar="D",
             help="weight for similarity regularization, 0 means no similarity regularization",
-        )
-
-        parser.add_argument(
-            "--unidirectional-translation",
-            action="store_true",
-            help="if true, only do X->Y translation, not Y->X",
         )
 
         # TODO: assert padding for source and target have to be on the same side
